@@ -1,32 +1,106 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { WakaTimeClient } from 'wakatime-client';
-import * as dotenv from 'dotenv';
-dotenv.config()
-
+import { ConfigService } from '@nestjs/config';
+import * as dayjs from 'dayjs';
+import axios from 'axios';
 
 @Injectable()
 export class AppService {
 
-    constructor() { }
+    private wakaClient: WakaTimeClient;
+    // private readonly logger = new Logger(AppService.name);
 
-    async getHello() {
-        try {
-            const client = new WakaTimeClient(process.env.WAKATIME_API_KEY);
-            const data = await client.getMySummary({
-                dateRange: {
-                    startDate: '2022-12-09',
-                    endDate: '2022-12-15',
-                },
-            })
+    constructor(private configSvc: ConfigService) {
+        const key = this.configSvc.get("WAKATIME_API_KEY");
+        if (!key) throw new Error(`WAKATIME_API_KEY variable missing`);
+        this.wakaClient = new WakaTimeClient(key);
+    }
 
-            let totalHoursThisWeek = 0
-            for (let day of data.data) {
-                totalHoursThisWeek += parseFloat(day.grand_total.decimal)
-            }
-            return {"hours": Math.floor(totalHoursThisWeek), "minutes": (Math.round((totalHoursThisWeek-Math.floor(totalHoursThisWeek))*60)), string: `${Math.floor(totalHoursThisWeek)}:${(Math.round((totalHoursThisWeek-Math.floor(totalHoursThisWeek))*60)).toLocaleString(undefined, {minimumIntegerDigits: 2})}`};
+    public async GetTime() {
+
+        const data = await this.wakaClient.getMySummary({
+            dateRange: {
+                startDate: dayjs().subtract(6, "day").format("YYYY-MM-DD"),
+                endDate: dayjs().format("YYYY-MM-DD"),
+            },
+        })
+
+        let totalHoursThisWeek = 0
+        for (let day of data.data) {
+            totalHoursThisWeek += parseFloat(day.grand_total.decimal)
         }
-        catch (e) {
-            console.log(`ERROR: ${e.message}`)
+
+        const hours = Math.floor(totalHoursThisWeek);
+        const minutes = Math.floor((totalHoursThisWeek - hours) * 60);
+
+        return {
+            hours,
+            minutes,
+            string: `${hours}:${minutes.toLocaleString(undefined, { minimumIntegerDigits: 2 })}`,
+        };
+    }
+
+    public async GetRepoData(): Promise<object> {
+        let url = "https://api.github.com/users/nasserkessas/repos";
+
+        const token = this.configSvc.get("GITHUB_ACCESS_TOKEN");
+        if (!token) throw new Error(`GITHUB_ACCESS_TOKEN variable missing`);
+
+        const res = await axios.get(url, {
+            auth: {
+                username: 'nasserkessas',
+                password: token
+            }
+        });
+
+        let languages = {}
+        for (let repo of res.data) {
+
+            if (repo.language == null) {
+                continue
+            }
+
+            if (repo.fork) {
+                continue
+            }
+
+            let langsRes = await axios.get(repo.languages_url, {
+                auth: {
+                    username: 'nasserkessas',
+                    password: token
+                }
+            });
+            for (let lang of Object.keys(langsRes.data)) {
+                if (!languages[lang]) {
+                    languages[lang] = langsRes.data[lang]
+                } else {
+                    languages[lang] += langsRes.data[lang]
+                }
+            }
+        }
+
+        let total = 0;
+
+        for (let lang of Object.keys(languages)){
+            total += languages[lang];
+        }
+
+        for (let lang of Object.keys(languages)){
+            languages[lang] = languages[lang]/total*100;
+        }
+
+        return {
+            repoCount: res.data.length,
+            languages
+        }
+    }
+
+    public async GetStats() {
+        let time = await this.GetTime();
+        let repos = await this.GetRepoData();
+        return {
+            time,
+            repos
         }
     }
 }
