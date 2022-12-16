@@ -25,18 +25,18 @@ type stats = {
 @Injectable()
 export class AppService {
 
+    private readonly logger = new Logger(AppService.name);
     private wakaClient: WakaTimeClient;
     private stats
-    // private readonly logger = new Logger(AppService.name);
 
     constructor(private configSvc: ConfigService) {
         const key = this.configSvc.get("WAKATIME_API_KEY");
         if (!key) throw new Error(`WAKATIME_API_KEY variable missing`);
         this.wakaClient = new WakaTimeClient(key);
 
-        this.RefreshStats()
+        this.RefreshStats();
 
-        setInterval(async () => { await this.RefreshStats() }, 900000)
+        setInterval(async () => { await this.RefreshStats() }, 900000);
     }
 
     public async GetTime(): Promise<timeStats> {
@@ -119,6 +119,7 @@ export class AppService {
     }
 
     public async RefreshStats() {
+        this.logger.debug(`Refreshing stats`)
         let time = await this.GetTime();
         let repos = await this.GetRepoData();
         this.stats = {
@@ -128,6 +129,7 @@ export class AppService {
     }
 
     public RetrieveStats(): stats {
+        this.logger.debug(`Retrieving stats`)
         return this.stats;
     }
 }
