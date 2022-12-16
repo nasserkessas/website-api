@@ -8,7 +8,7 @@ export class AppController {
 
     @Get()
     async handleGetStats() {
-        const stats = await this.appService.GetStats();
+        const stats = this.appService.RetrieveStats();
         return { stats };
     }
 }

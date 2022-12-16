@@ -4,19 +4,42 @@ import { ConfigService } from '@nestjs/config';
 import * as dayjs from 'dayjs';
 import axios from 'axios';
 
+type timeStats = {
+    hours: Number;
+    minutes: Number;
+    string: String;
+}
+
+type repoStats = {
+    repoCount: Number;
+    languages: Object;
+}
+
+
+type stats = {
+    time: timeStats;
+    repos: repoStats;
+}
+
+
 @Injectable()
 export class AppService {
 
     private wakaClient: WakaTimeClient;
+    private stats
     // private readonly logger = new Logger(AppService.name);
 
     constructor(private configSvc: ConfigService) {
         const key = this.configSvc.get("WAKATIME_API_KEY");
         if (!key) throw new Error(`WAKATIME_API_KEY variable missing`);
         this.wakaClient = new WakaTimeClient(key);
+
+        this.RefreshStats()
+
+        setInterval(async () => { await this.RefreshStats() }, 900000)
     }
 
-    public async GetTime() {
+    public async GetTime(): Promise<timeStats> {
 
         const data = await this.wakaClient.getMySummary({
             dateRange: {
@@ -40,7 +63,7 @@ export class AppService {
         };
     }
 
-    public async GetRepoData(): Promise<object> {
+    public async GetRepoData(): Promise<repoStats> {
         let url = "https://api.github.com/users/nasserkessas/repos";
 
         const token = this.configSvc.get("GITHUB_ACCESS_TOKEN");
@@ -81,12 +104,12 @@ export class AppService {
 
         let total = 0;
 
-        for (let lang of Object.keys(languages)){
+        for (let lang of Object.keys(languages)) {
             total += languages[lang];
         }
 
-        for (let lang of Object.keys(languages)){
-            languages[lang] = languages[lang]/total*100;
+        for (let lang of Object.keys(languages)) {
+            languages[lang] = languages[lang] / total * 100;
         }
 
         return {
@@ -95,12 +118,16 @@ export class AppService {
         }
     }
 
-    public async GetStats() {
+    public async RefreshStats() {
         let time = await this.GetTime();
         let repos = await this.GetRepoData();
-        return {
+        this.stats = {
             time,
             repos
         }
+    }
+
+    public RetrieveStats(): stats {
+        return this.stats;
     }
 }
