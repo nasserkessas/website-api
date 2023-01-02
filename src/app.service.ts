@@ -118,13 +118,21 @@ export class AppService {
         }
     }
 
+    public async GetStackOverflowReputation(): Promise<number> {
+        let url = "https://api.stackexchange.com/2.3/users/20771881?site=stackoverflow";
+        const res = await axios.get(url);
+        return res.data.items[0].reputation;
+    }
+
     public async RefreshStats() {
         this.logger.debug(`Refreshing stats`)
         let time = await this.GetTime();
         let repos = await this.GetRepoData();
+        let reputation = await this.GetStackOverflowReputation();
         this.stats = {
             time,
-            repos
+            repos,
+            reputation
         }
     }
 
