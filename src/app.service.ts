@@ -64,7 +64,7 @@ export class AppService {
     }
 
     public async GetRepoData(): Promise<repoStats> {
-        let url = "https://api.github.com/users/nasserkessas/repos";
+        let url = "https://api.github.com/users/nasserkessas/repos?per_page=1000";
 
         const token = this.configSvc.get("GITHUB_ACCESS_TOKEN");
         if (!token) throw new Error(`GITHUB_ACCESS_TOKEN variable missing`);
